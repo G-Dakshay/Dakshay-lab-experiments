@@ -1,0 +1,990 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style><title>Damped Oscillation Logger</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one lab-notebook column. Figures sit beside short notes on wide screens and stack on phones.
+   Blue marks the physics (spring, mass, true motion). Orange marks what the sensor measures. */
+:root{
+  --bg:#EDF0F3; --surface:#F9FAFB; --ink:#121C2B; --muted:#56637B; --line:#CBD2DC; --grid:#DCE2EA;
+  --accent:#1D55B8; --accent-soft:#DCE7F8; --on-accent:#FFFFFF;
+  --data:#B8490A; --data-soft:#F8E3D3; --good:#1E7A4F; --bad:#B3261E;
+  --display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --sans:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1520; --surface:#151F2E; --ink:#E7EDF6; --muted:#97A5BC; --line:#2B384C; --grid:#1D293A;
+    --accent:#78A9FF; --accent-soft:#1B2D4B; --on-accent:#0E1520;
+    --data:#FF9D57; --data-soft:#3A2415; --good:#5FD39A; --bad:#FF8A80; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1520; --surface:#151F2E; --ink:#E7EDF6; --muted:#97A5BC; --line:#2B384C; --grid:#1D293A;
+  --accent:#78A9FF; --accent-soft:#1B2D4B; --on-accent:#0E1520;
+  --data:#FF9D57; --data-soft:#3A2415; --good:#5FD39A; --bad:#FF8A80; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.6 var(--sans);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:0 72px;-webkit-text-size-adjust:100%}
+.wrap{max-width:1120px;margin-inline:auto}
+h1,h2,h3{font-family:var(--display);line-height:1.08;letter-spacing:-.01em;text-wrap:balance;margin:0}
+h1{font-size:clamp(2.4rem,6.4vw,4.2rem);font-weight:800}
+h2{font-size:clamp(1.65rem,3.6vw,2.35rem);font-weight:800}
+h3{font-size:1.05rem;font-weight:600;letter-spacing:0}
+p{margin:0;max-width:65ch}
+a{color:var(--accent)}
+.lab{font:500 .72rem/1.2 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}
+code,.mono{font-family:var(--mono)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* hero */
+.hero{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:32px 48px;align-items:center;padding-block:48px 24px}
+.hero .copy{display:grid;gap:18px}
+.hero p.lede{font-size:1.12rem;color:var(--ink)}
+.nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.nav a{font:500 .78rem/1 var(--mono);text-decoration:none;color:var(--ink);border:1px solid var(--line);background:var(--surface);padding:9px 12px;border-radius:6px}
+.nav a:hover{border-color:var(--accent);color:var(--accent)}
+.heroart{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px}
+.heroart svg{display:block;width:100%;height:auto}
+
+section{padding-block:56px 0;scroll-margin-top:12px}
+.head{display:grid;gap:12px;margin-bottom:26px}
+
+/* process chain */
+ol.chain{list-style:none;counter-reset:s;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+ol.chain li{counter-increment:s;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 14px 16px;display:grid;gap:8px;align-content:start;min-width:0}
+ol.chain li::before{content:counter(s);font:500 .8rem/1 var(--mono);color:var(--on-accent);background:var(--accent);width:24px;height:24px;border-radius:50%;display:grid;place-items:center}
+ol.chain li.data::before{background:var(--data)}
+ol.chain p{font-size:.92rem;color:var(--muted)}
+
+/* figures */
+.fig{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:28px;align-items:start}
+.fig.flip{grid-template-columns:minmax(0,1fr) minmax(0,1.3fr)}
+figure{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;min-width:0}
+figure svg{display:block;width:100%;height:auto;color:var(--ink)}
+.scroll{overflow-x:auto}
+.scroll svg{min-width:560px}
+.scroll.narrow svg{min-width:340px}
+figcaption{font-size:.86rem;line-height:1.5;color:var(--muted);margin-top:12px}
+figcaption b{font-family:var(--mono);font-weight:500;color:var(--ink)}
+.notes{display:grid;gap:18px;min-width:0}
+.notes div{display:grid;gap:4px}
+.notes p{font-size:.95rem;color:var(--muted)}
+.notes h3{color:var(--ink)}
+
+/* svg vocabulary */
+svg text{fill:currentColor;font:13px var(--sans)}
+svg .sm{font-size:12px}
+svg .mut{fill:var(--muted)}
+svg .mono{font-family:var(--mono)}
+svg .b{font-weight:600}
+svg .ttl{font:600 15px var(--display)}
+svg .ln{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+svg .ln2{fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+svg .metal{fill:var(--line);stroke:currentColor;stroke-width:1.4}
+svg .box{fill:var(--bg);stroke:currentColor;stroke-width:1.6}
+svg .liquid{fill:var(--accent-soft);stroke:none}
+svg .surface{fill:none;stroke:var(--accent);stroke-width:1.6}
+svg .mass{fill:var(--accent);stroke:currentColor;stroke-width:1.4}
+svg .massT{fill:var(--on-accent);font:600 14px var(--display)}
+svg .flag{fill:#F4F6F8;stroke:currentColor;stroke-width:1.4}
+svg .sensor{fill:var(--data-soft);stroke:var(--data);stroke-width:1.8}
+svg .beamfill{fill:var(--data);opacity:.16}
+svg .beamln{fill:none;stroke:var(--data);stroke-width:1.6;stroke-dasharray:4 4}
+svg .cable{fill:none;stroke:var(--data);stroke-width:2.4}
+svg .dtx{fill:var(--data);font:600 14px var(--mono)}
+svg .mk-d{fill:var(--data)}
+svg .lead{fill:none;stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3}
+svg .pin{fill:currentColor}
+svg .w-pwr{fill:none;stroke:#D64545;stroke-width:2.5}
+svg .w-gnd{fill:none;stroke:currentColor;stroke-width:2.5}
+svg .w-sda{fill:none;stroke:#4C93F0;stroke-width:2.5}
+svg .w-scl{fill:none;stroke:#D9A300;stroke-width:2.5}
+svg .st rect{fill:var(--bg);stroke:currentColor;stroke-width:1.6;transition:fill .2s,stroke .2s}
+svg .st.on rect{fill:var(--accent-soft);stroke:var(--accent);stroke-width:3}
+
+/* tables, parts */
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{text-align:left;padding:9px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:500 .72rem/1.3 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.sum td{background:var(--bg);font-weight:500}
+.parts td:first-child{font-weight:600;white-space:nowrap}
+.parts td{color:var(--muted)}
+.parts td:first-child{color:var(--ink)}
+
+/* code */
+.code{border:1px solid var(--line);border-radius:8px;background:var(--surface);min-width:0;overflow:hidden}
+.codehead{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 8px 8px 14px;border-bottom:1px solid var(--line)}
+.codehead span{font:500 .78rem/1 var(--mono);color:var(--muted)}
+pre{margin:0;padding:14px;overflow-x:auto;font:400 .8rem/1.55 var(--mono);tab-size:2;color:var(--ink)}
+.btn{font:500 .84rem/1 var(--sans);border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:6px;padding:9px 13px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600;font-size:.95rem;padding:12px 20px}
+.btn.primary:disabled{opacity:.55;cursor:default}
+.btn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+
+/* simulation */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:18px;min-width:0}
+.controls{display:grid;gap:18px}
+.seg{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.sliders{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px 26px}
+.ctl{display:grid;gap:4px;min-width:0}
+.ctl label,.ctl .cl{display:flex;justify-content:space-between;gap:8px;font-size:.88rem}
+.ctl output{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--accent)}
+input[type=range]{width:100%;accent-color:var(--accent);margin:0}
+select{font:inherit;font-size:.9rem;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 8px}
+.sim{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:18px;margin-top:18px;align-items:start}
+.rigwrap svg{display:block;width:100%;height:auto;color:var(--ink)}
+.plotbox{display:grid;gap:12px;min-width:0}
+canvas{display:block;width:100%;background:var(--bg);border:1px solid var(--line);border-radius:6px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.82rem;color:var(--muted)}
+.legend i{display:inline-block;vertical-align:middle;margin-right:6px}
+.sw-dot{width:8px;height:8px;border-radius:50%;background:var(--data)}
+.sw-line{width:18px;height:0;border-top:2px solid var(--accent)}
+.sw-dash{width:18px;height:0;border-top:2px dashed var(--accent)}
+.sw-ring{width:10px;height:10px;border-radius:50%;border:2px solid var(--ink)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px}
+.stat{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px 12px;display:grid;gap:2px;min-width:0}
+.stat .v{font:800 1.45rem/1.1 var(--display);font-variant-numeric:tabular-nums;color:var(--data)}
+.stat .s{font:400 .74rem/1.3 var(--mono);color:var(--muted)}
+.pill{display:inline-block;font:500 .74rem/1 var(--mono);padding:6px 9px;border-radius:999px;border:1px solid var(--line);background:var(--bg)}
+.trials{margin-top:18px;display:grid;gap:10px}
+.small{font-size:.86rem;color:var(--muted)}
+.foot{margin-top:64px;padding-top:18px;border-top:1px solid var(--line);font-size:.86rem;color:var(--muted);display:grid;gap:6px}
+ul.check{margin:0;padding-left:1.2em;display:grid;gap:8px;max-width:70ch}
+ul.check li::marker{color:var(--accent)}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+
+@media (max-width:860px){
+  .hero,.fig,.fig.flip,.sim,.two{grid-template-columns:minmax(0,1fr)}
+  section{padding-block:44px 0}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+.topbar{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:14px}
+.topbar a{font:500 .8rem/1 var(--mono);color:var(--muted);text-decoration:none;display:inline-block;padding:10px 0}
+.topbar a:hover{color:var(--accent)}
+</style></head><body><div class="wrap topbar"><a href="index.html">← Dakshay website for labs</a><a href="fibre.html">Experiment 6 →</a></div>
+
+
+<header class="wrap hero">
+  <div class="copy">
+    <span class="lab">Physics lab · Damped harmonic oscillator</span>
+    <h1>Damped Oscillation Logger</h1>
+    <p class="lede">A spring, a mass and a beaker, read by a distance sensor instead of a stopwatch. An Arduino records the whole decay curve, and a short Python script turns it into the period, the damping constant and their uncertainties.</p>
+    <nav class="nav" aria-label="Sections">
+      <a href="#how">How it works</a><a href="#rig">The rig</a><a href="#wiring">Wiring</a><a href="#firmware">Firmware</a><a href="#simulate">Simulation</a><a href="#analysis">Analysis</a>
+    </nav>
+  </div>
+  <div class="heroart">
+    <svg id="heroSvg" viewBox="0 0 420 230" role="img" aria-label="A decaying oscillation sampled by the sensor, with dashed envelope lines"></svg>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section id="how">
+  <div class="head">
+    <span class="lab">Overview</span>
+    <h2>From swinging mass to numbers</h2>
+    <p>You pull the mass down and let go. Every step after that runs without a hand on a button, which removes the reaction-time error of the stopwatch method.</p>
+  </div>
+  <ol class="chain">
+    <li><h3>Mass oscillates</h3><p>The spring pulls it back and the liquid drags on it, so each swing is smaller than the last.</p></li>
+    <li><h3>Flag follows</h3><p>A matte white flag on a thin rod rides above the liquid and moves with the mass.</p></li>
+    <li class="data"><h3>Sensor ranges</h3><p>A VL53L1X times infrared pulses bouncing off the flag, 50 times a second, to the nearest millimetre.</p></li>
+    <li class="data"><h3>Arduino stamps</h3><p>Each reading gets a time from the Arduino clock, so timing never depends on a person.</p></li>
+    <li><h3>USB to laptop</h3><p>Lines of text such as <code>1240.0,127</code> arrive over serial and are saved as a CSV.</p></li>
+    <li><h3>Python fits</h3><p>A decaying cosine is fitted to the data. T and γ come out with uncertainties, and b = 2mγ follows.</p></li>
+  </ol>
+</section>
+
+<section id="rig">
+  <div class="head">
+    <span class="lab">Mechanics</span>
+    <h2>The rig</h2>
+  </div>
+  <div class="fig">
+    <figure>
+      <div class="scroll">
+      <svg viewBox="0 0 680 540" role="img" aria-label="A spring-mass oscillator hangs from a stand arm into a beaker of liquid. A distance sensor on the arm looks down at a flag on the mass. The sensor connects to an Arduino, which connects to a laptop by USB.">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker>
+          <marker id="ahd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-d" d="M0 0L10 5L0 10z"/></marker>
+        </defs>
+        <!-- stand -->
+        <rect class="metal" x="60" y="490" width="300" height="14" rx="2"/>
+        <rect class="metal" x="90" y="60" width="10" height="430"/>
+        <rect class="metal" x="90" y="60" width="250" height="10"/>
+        <text class="sm mut" x="110" y="524">stand and clamp</text>
+        <!-- beaker and liquid -->
+        <rect class="liquid" x="152" y="280" width="156" height="189"/>
+        <path class="ln2" d="M150 250 V470 H310 V250"/>
+        <path class="surface" d="M152 280 H308"/>
+        <text class="sm mut" x="230" y="440" text-anchor="middle">water or</text>
+        <text class="sm mut" x="230" y="456" text-anchor="middle">shampoo-water</text>
+        <!-- spring -->
+        <path class="ln2" d="M230 70 V92 L244 100 L216 116 L244 132 L216 148 L244 164 L216 180 L244 196 L216 212 L244 228 L216 244 L244 260 L230 268 V300"/>
+        <text class="sm b" x="112" y="180">spring, constant k</text>
+        <!-- mass, rod, flag -->
+        <rect class="mass" x="200" y="300" width="60" height="50" rx="3"/>
+        <text class="massT" x="230" y="330" text-anchor="middle">m</text>
+        <rect x="258" y="152" width="4" height="148" fill="currentColor"/>
+        <rect class="flag" x="250" y="146" width="70" height="6"/>
+        <text class="sm b" x="330" y="168">flag, matte white</text>
+        <path class="lead" d="M260 325 H324"/>
+        <text class="sm b" x="330" y="329">mass m, fully submerged</text>
+        <!-- sensor and beam -->
+        <polygon class="beamfill" points="283,86 287,86 304,146 266,146"/>
+        <path class="beamln" d="M285 86 V146"/>
+        <rect class="sensor" x="265" y="70" width="40" height="16" rx="2"/>
+        <text class="sm b" x="285" y="22" text-anchor="middle">VL53L1X sensor</text>
+        <text class="sm mut" x="285" y="38" text-anchor="middle">looks down at the flag</text>
+        <path class="lead" d="M285 44 V58"/>
+        <path d="M340 90 V144" fill="none" stroke-width="1.8" marker-start="url(#ahd)" marker-end="url(#ahd)" style="stroke:var(--data)"/>
+        <text class="dtx" x="350" y="122">d(t)</text>
+        <!-- cable to Arduino -->
+        <path class="cable" d="M305 78 H480"/>
+        <text class="sm mut" x="392" y="68" text-anchor="middle">I²C + power</text>
+        <!-- Arduino -->
+        <rect class="box" x="480" y="40" width="170" height="72" rx="6"/>
+        <text class="ttl" x="565" y="66" text-anchor="middle">Arduino Nano</text>
+        <text class="sm mut" x="565" y="85" text-anchor="middle">50 readings per second</text>
+        <text class="sm mut" x="565" y="101" text-anchor="middle">button + LED</text>
+        <!-- USB -->
+        <path class="ln2" d="M565 112 V248" marker-end="url(#ah)"/>
+        <text class="sm b" x="578" y="170">USB serial</text>
+        <text class="sm mono mut" x="578" y="188">t_ms,d_mm</text>
+        <!-- laptop -->
+        <rect class="box" x="480" y="252" width="170" height="96" rx="6"/>
+        <rect class="box" x="466" y="348" width="198" height="9" rx="3"/>
+        <text class="ttl" x="565" y="280" text-anchor="middle">Laptop</text>
+        <text class="sm mono mut" x="565" y="304" text-anchor="middle">capture.py</text>
+        <text class="sm mono mut" x="565" y="324" text-anchor="middle">fit.py → T, γ, b</text>
+      </svg>
+      </div>
+      <figcaption><b>Fig. 1</b> The flag rides on a rod beside the spring, so the sensor beam never hits a coil. Only the flag and rod touch the air, and everything electronic stays dry above the liquid.</figcaption>
+    </figure>
+    <div class="notes">
+      <div><h3>Flag beside the spring</h3><p>The sensor needs a clear line to the flag. Mounting the flag on a rod next to the spring keeps the beam out of the coils.</p></div>
+      <div><h3>Matte white surface</h3><p>Shiny or transparent surfaces return erratic distances. A sheet of plain white card gives clean readings.</p></div>
+      <div><h3>Keep it in range</h3><p>Hold the flag between 5 and 30 cm below the sensor. The model in this page uses a rest distance of 12 cm.</p></div>
+      <div><h3>Keep the motion vertical</h3><p>A loose guide ring or a stiff rod stops sideways swing, which would show up as a false signal.</p></div>
+      <div><h3>Rigid sensor mount</h3><p>Any wobble in the arm reads as oscillation, so clamp it firmly.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="wiring">
+  <div class="head">
+    <span class="lab">Electronics</span>
+    <h2>Wiring</h2>
+    <p>Four wires to the sensor, one button and one LED. Nothing else is needed.</p>
+  </div>
+  <div class="fig flip">
+    <div class="tbl">
+      <table class="parts">
+        <thead><tr><th>Part</th><th>Job</th></tr></thead>
+        <tbody>
+          <tr><td>Arduino Nano or Uno</td><td>Reads the sensor, stamps the time, talks to the laptop.</td></tr>
+          <tr><td>VL53L1X breakout</td><td>Time-of-flight distance sensor on I²C.</td></tr>
+          <tr><td>Push button</td><td>Re-arms the logger between trials.</td></tr>
+          <tr><td>LED and 220 Ω resistor</td><td>Shows the state: fast blink, slow blink, solid, off.</td></tr>
+          <tr><td>Breadboard and jumpers</td><td>Joins everything with no soldering.</td></tr>
+          <tr><td>USB cable</td><td>Power and serial data.</td></tr>
+          <tr><td>White card, thin rod</td><td>The flag and its arm.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <figure>
+      <div class="scroll">
+      <svg viewBox="0 0 680 400" role="img" aria-label="Wiring diagram. Arduino 5V, GND, A4 and A5 go to VIN, GND, SDA and SCL on the VL53L1X board. A push button connects D2 to GND. An LED with a 220 ohm resistor connects D13 to GND.">
+        <rect class="box" x="40" y="40" width="170" height="330" rx="8"/>
+        <text class="ttl" x="125" y="66" text-anchor="middle">Arduino Nano</text>
+        <text class="sm mut" x="125" y="356" text-anchor="middle">USB to laptop</text>
+        <g class="sm mono">
+          <text x="198" y="84" text-anchor="end">5V</text>
+          <text x="198" y="114" text-anchor="end">GND</text>
+          <text x="198" y="144" text-anchor="end">A4 · SDA</text>
+          <text x="198" y="174" text-anchor="end">A5 · SCL</text>
+          <text x="198" y="229" text-anchor="end">D2</text>
+          <text x="198" y="259" text-anchor="end">GND</text>
+          <text x="198" y="304" text-anchor="end">D13</text>
+          <text x="198" y="334" text-anchor="end">GND</text>
+        </g>
+        <g class="pin"><circle cx="210" cy="80" r="4"/><circle cx="210" cy="110" r="4"/><circle cx="210" cy="140" r="4"/><circle cx="210" cy="170" r="4"/><circle cx="210" cy="225" r="4"/><circle cx="210" cy="255" r="4"/><circle cx="210" cy="300" r="4"/><circle cx="210" cy="330" r="4"/></g>
+
+        <rect class="box" x="470" y="50" width="170" height="172" rx="8"/>
+        <text class="ttl" x="555" y="76" text-anchor="middle">VL53L1X breakout</text>
+        <g class="sm mono">
+          <text x="484" y="104">VIN</text><text x="484" y="134">GND</text><text x="484" y="164">SDA</text><text x="484" y="194">SCL</text>
+        </g>
+        <text class="sm mut" x="555" y="212" text-anchor="middle">XSHUT, GPIO1 unused</text>
+        <g class="pin"><circle cx="470" cy="100" r="4"/><circle cx="470" cy="130" r="4"/><circle cx="470" cy="160" r="4"/><circle cx="470" cy="190" r="4"/></g>
+
+        <path class="w-pwr" d="M210 80 H340 V100 H470"/>
+        <path class="w-gnd" d="M210 110 H350 V130 H470"/>
+        <path class="w-sda" d="M210 140 H360 V160 H470"/>
+        <path class="w-scl" d="M210 170 H370 V190 H470"/>
+
+        <rect class="box" x="400" y="205" width="90" height="50" rx="4"/>
+        <text class="sm b" x="445" y="235" text-anchor="middle">push button</text>
+        <path class="w-gnd" d="M210 225 H400"/>
+        <path class="w-gnd" d="M210 255 H380 V245 H400"/>
+        <text class="sm mut" x="445" y="276" text-anchor="middle">uses INPUT_PULLUP</text>
+
+        <path class="w-gnd" d="M210 300 H290"/>
+        <rect class="box" x="290" y="290" width="60" height="20" rx="3"/>
+        <text class="sm mono" x="320" y="304" text-anchor="middle">220 Ω</text>
+        <path class="w-gnd" d="M350 300 H400"/>
+        <polygon points="400,286 400,314 428,300" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" style="fill:var(--data)"/>
+        <path class="ln2" d="M428 286 V314"/>
+        <path class="w-gnd" d="M428 300 H470 V330 H210"/>
+        <text class="sm mut" x="414" y="356" text-anchor="middle">LED, on while logging</text>
+      </svg>
+      </div>
+      <figcaption><b>Fig. 2</b> Red is 5 V, blue is SDA, yellow is SCL and dark lines are ground or signal. The Pololu and Adafruit boards have their own regulator, so the Nano's 5 V pin is fine. A bare sensor chip needs 3.3 V instead.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="firmware">
+  <div class="head">
+    <span class="lab">Firmware</span>
+    <h2>What the Arduino does</h2>
+    <p>Four states, always in the same order. The calibration removes any need to align the sensor exactly, and the trigger removes the need to press anything at the moment of release.</p>
+  </div>
+  <div class="fig flip">
+    <figure>
+      <div class="scroll narrow">
+      <svg id="flowSvg" viewBox="0 0 400 580" role="img" aria-label="State machine with four states: calibrate, armed, logging and done, joined by arrows. A button press returns from done to armed.">
+        <defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
+        <g class="st" data-s="CALIBRATE"><rect x="20" y="20" width="290" height="96" rx="8"/>
+          <text class="ttl" x="36" y="48">CALIBRATE</text>
+          <text class="sm mut" x="36" y="70">Average 1 s of readings with the</text><text class="sm mut" x="36" y="87">mass hanging still. The result is</text><text class="sm mut" x="36" y="104">the rest distance d₀. LED blinks fast.</text></g>
+        <g class="st" data-s="ARMED"><rect x="20" y="170" width="290" height="96" rx="8"/>
+          <text class="ttl" x="36" y="198">ARMED</text>
+          <text class="sm mut" x="36" y="220">Wait. Pull the mass down by hand.</text><text class="sm mut" x="36" y="237">Logging starts when the reading</text><text class="sm mut" x="36" y="254">moves over 5 mm from d₀. LED blinks slowly.</text></g>
+        <g class="st" data-s="LOGGING"><rect x="20" y="320" width="290" height="96" rx="8"/>
+          <text class="ttl" x="36" y="348">LOGGING</text>
+          <text class="sm mut" x="36" y="370">Send t_ms,d_mm over USB every</text><text class="sm mut" x="36" y="387">20 ms. LED stays on.</text><text class="sm mut" x="36" y="404">Stop when 1 s spans under 6 mm.</text></g>
+        <g class="st" data-s="DONE"><rect x="20" y="470" width="290" height="96" rx="8"/>
+          <text class="ttl" x="36" y="498">DONE</text>
+          <text class="sm mut" x="36" y="520">Send END. The laptop saves the CSV.</text><text class="sm mut" x="36" y="537">LED off. Press the button to</text><text class="sm mut" x="36" y="554">re-arm for the next trial.</text></g>
+        <path class="ln2" d="M165 116 V168" marker-end="url(#ah2)"/><text class="sm mono" x="176" y="147">50 readings</text>
+        <path class="ln2" d="M165 266 V318" marker-end="url(#ah2)"/><text class="sm mono" x="176" y="297">moves &gt; 5 mm</text>
+        <path class="ln2" d="M165 416 V468" marker-end="url(#ah2)"/><text class="sm mono" x="176" y="447">settled, or 60 s</text>
+        <path class="ln2" d="M310 518 H350 V218 H312" marker-end="url(#ah2)"/>
+        <text class="sm mono" transform="translate(372 368) rotate(-90)" text-anchor="middle">button press</text>
+      </svg>
+      </div>
+      <figcaption><b>Fig. 3</b> The state machine. In the simulation below, the box for the current state lights up as the trial runs.</figcaption>
+    </figure>
+    <div class="code">
+      <div class="codehead"><span>logger.ino</span><button class="btn" type="button" data-copy="code-ino">Copy</button></div>
+<pre id="code-ino">#include &lt;Wire.h&gt;
+#include &lt;VL53L1X.h&gt;           // Pololu VL53L1X library
+
+VL53L1X sensor;
+const uint8_t BTN = 2, LED = 13;
+const int TRIGGER_MM = 5;      // movement from rest that starts logging
+const int SETTLED_MM = 6;      // stop when 1 s of readings spans less than this
+const unsigned long MAX_MS = 60000UL;
+
+enum State { CALIBRATE, ARMED, LOGGING, DONE };
+State state = CALIBRATE;
+
+float d0 = 0, sum = 0;
+int nCal = 0;
+uint16_t win[50];              // the last second of readings
+uint8_t wi = 0, filled = 0;
+unsigned long t0us, tStartMs;
+
+void logSample(uint16_t d) {
+  Serial.print((micros() - t0us) / 1000.0, 1);
+  Serial.print(',');
+  Serial.println(d);
+  win[wi] = d; wi = (wi + 1) % 50;
+  if (filled &lt; 50) filled++;
+}
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(BTN, INPUT_PULLUP);
+  pinMode(LED, OUTPUT);
+  Wire.begin();
+  Wire.setClock(400000);
+  sensor.setTimeout(500);
+  if (!sensor.init()) {        // sensor not found: blink fast forever
+    while (true) { digitalWrite(LED, !digitalRead(LED)); delay(80); }
+  }
+  sensor.setDistanceMode(VL53L1X::Short);
+  sensor.setMeasurementTimingBudget(20000);  // 20 ms per measurement
+  sensor.startContinuous(20);                // a reading every 20 ms = 50 Hz
+}
+
+void loop() {
+  uint16_t d = sensor.read();  // waits for the next reading
+  unsigned long ms = millis();
+
+  switch (state) {
+    case CALIBRATE:
+      digitalWrite(LED, (ms / 100) % 2);
+      sum += d;
+      if (++nCal == 50) {      // 1 s of readings
+        d0 = sum / nCal;
+        Serial.print("# d0_mm="); Serial.println(d0, 1);
+        state = ARMED;
+      }
+      break;
+
+    case ARMED:
+      digitalWrite(LED, (ms / 500) % 2);
+      if (abs((int)d - (int)d0) &gt; TRIGGER_MM) {
+        Serial.println("t_ms,d_mm");
+        t0us = micros(); tStartMs = ms; wi = 0; filled = 0;
+        logSample(d);
+        state = LOGGING;
+      }
+      break;
+
+    case LOGGING: {
+      digitalWrite(LED, HIGH);
+      logSample(d);
+      uint16_t lo = 65535, hi = 0;
+      for (uint8_t i = 0; i &lt; filled; i++) {
+        lo = min(lo, win[i]); hi = max(hi, win[i]);
+      }
+      bool settled = filled == 50 &amp;&amp; (hi - lo) &lt; SETTLED_MM &amp;&amp; ms - tStartMs &gt; 2000;
+      if (settled || ms - tStartMs &gt; MAX_MS) {
+        Serial.println("END");
+        state = DONE;
+      }
+      break;
+    }
+
+    case DONE:
+      digitalWrite(LED, LOW);
+      if (digitalRead(BTN) == LOW) { delay(30); state = ARMED; }
+      break;
+  }
+}</pre>
+    </div>
+  </div>
+</section>
+
+<section id="simulate">
+  <div class="head">
+    <span class="lab">Simulation</span>
+    <h2>Run a simulated trial</h2>
+    <p>This is a model of the rig, not recorded data. Choose a liquid and press the button. The same four states run, the sensor samples the motion with noise, and a fit at the end recovers the period and the damping. Drag values are illustrative. Your own b comes from your own fit.</p>
+  </div>
+
+  <div class="panel controls">
+    <div class="seg" role="group" aria-label="Liquid presets">
+      <span class="lab" style="margin-right:4px">Liquid</span>
+      <button class="btn" type="button" data-preset="air" aria-pressed="false">Air</button>
+      <button class="btn" type="button" data-preset="water" aria-pressed="true">Water</button>
+      <button class="btn" type="button" data-preset="shampoo" aria-pressed="false">Shampoo-water</button>
+      <button class="btn" type="button" data-preset="thick" aria-pressed="false">Thick shampoo</button>
+    </div>
+    <div class="sliders">
+      <div class="ctl"><label for="s_b">Drag b <output id="o_b">0.10 kg/s</output></label><input id="s_b" type="range" min="0.01" max="4.5" step="0.01" value="0.10"></div>
+      <div class="ctl"><label for="s_m">Mass m <output id="o_m">0.20 kg</output></label><input id="s_m" type="range" min="0.1" max="0.5" step="0.01" value="0.20"></div>
+      <div class="ctl"><label for="s_k">Spring k <output id="o_k">20 N/m</output></label><input id="s_k" type="range" min="5" max="50" step="1" value="20"></div>
+      <div class="ctl"><label for="s_A">Pull distance <output id="o_A">24 mm</output></label><input id="s_A" type="range" min="10" max="36" step="1" value="24"></div>
+      <div class="ctl"><label for="s_n">Sensor noise <output id="o_n">0.7 mm</output></label><input id="s_n" type="range" min="0" max="2" step="0.1" value="0.7"></div>
+      <div class="ctl"><span class="cl">Sample rate</span>
+        <select id="s_fs" aria-label="Sample rate"><option value="10">10 Hz</option><option value="25">25 Hz</option><option value="50" selected>50 Hz</option><option value="100">100 Hz</option></select></div>
+      <div class="ctl"><span class="cl">Playback speed</span>
+        <select id="s_sp" aria-label="Playback speed"><option value="1">1×</option><option value="3" selected>3×</option><option value="10">10×</option></select></div>
+    </div>
+    <div class="seg"><button class="btn primary" id="go" type="button">Pull and release</button><span class="small" id="hint">The plot shows a finished trial. Press the button to watch one run.</span></div>
+  </div>
+
+  <div class="sim">
+    <figure class="rigwrap">
+      <svg id="rig" viewBox="0 0 300 480" role="img" aria-label="Animated model of the rig: a spring and mass in a beaker with a flag and a distance sensor above it">
+        <rect class="metal" x="0" y="440" width="150" height="10" rx="2"/>
+        <rect class="metal" x="14" y="22" width="8" height="420"/>
+        <rect class="metal" x="14" y="22" width="172" height="10"/>
+        <rect class="liquid" x="41" y="300" width="138" height="139"/>
+        <path class="ln2" d="M40 280 V440 H180 V280"/>
+        <path class="surface" d="M41 300 H179"/>
+        <path class="lead" d="M96 224 H186"/>
+        <text class="sm mut" x="192" y="228">rest</text>
+        <line id="beam" x1="138" y1="57" x2="138" y2="221" stroke-width="1.6" stroke-dasharray="4 4" style="stroke:var(--data)"/>
+        <rect class="sensor" x="120" y="32" width="36" height="22" rx="2"/>
+        <rect x="134" y="54" width="8" height="3" style="fill:var(--data)"/>
+        <text class="sm b" x="192" y="46">sensor</text>
+        <polyline id="spring" class="ln2" points="" />
+        <g id="mover">
+          <rect class="mass" x="62" y="334" width="56" height="50" rx="3"/>
+          <text class="massT" x="90" y="364" text-anchor="middle">m</text>
+          <rect x="112" y="226" width="4" height="108" fill="currentColor"/>
+          <rect class="flag" x="103" y="221" width="70" height="5"/>
+        </g>
+        <circle id="pulse" cx="138" cy="221" r="5" opacity="0" style="fill:var(--data)"/>
+        <text class="dtx" id="rdD" x="192" y="112" style="font-size:15px">d = 120 mm</text>
+        <text class="sm mono mut" id="rdD0" x="192" y="132">d₀ = 120.0 mm</text>
+        <text class="sm mono" id="rdState" x="192" y="154">DONE</text>
+        <circle id="led" cx="198" cy="178" r="6" opacity=".15" stroke-width="1.5" style="fill:var(--data);stroke:var(--data)"/>
+        <text class="sm mut" x="212" y="182">LED</text>
+      </svg>
+      <figcaption><b>Fig. 4</b> The orange dot flashes at each sample. Spring and mass are drawn with exaggerated motion so small swings stay visible.</figcaption>
+    </figure>
+
+    <div class="plotbox">
+      <canvas id="plot" aria-label="Sensor readings against time for the simulated trial" role="img"></canvas>
+      <div class="legend">
+        <span><i class="sw-dot"></i>sensor readings</span>
+        <span><i class="sw-line"></i>true motion</span>
+        <span><i class="sw-dash"></i>fitted envelope</span>
+        <span><i class="sw-ring"></i>peaks used by the fit</span>
+      </div>
+      <div class="seg"><span class="pill" id="regime">Underdamped</span><span class="pill" id="zeta">ζ = 0.00</span><span class="small" id="swings"></span></div>
+      <div class="stats" id="stats"></div>
+    </div>
+  </div>
+
+  <div class="trials">
+    <h3>Repeated trials</h3>
+    <p class="small">Each press of the button adds a trial with fresh sensor noise. The stopwatch column models timing 20 swings by hand, with each press off by about 0.1 s at random (an assumption for comparison). It shows n/a when the swings die out before 20 can be counted.</p>
+    <div class="tbl"><table>
+      <thead><tr><th class="num">Trial</th><th class="num">T sensor (s)</th><th class="num">γ sensor (1/s)</th><th class="num">T stopwatch (s)</th></tr></thead>
+      <tbody id="runs"></tbody>
+    </table></div>
+  </div>
+</section>
+
+<section id="analysis">
+  <div class="head">
+    <span class="lab">Analysis</span>
+    <h2>Capture and fit</h2>
+    <p>Two short scripts. The first saves one trial to a CSV. The second fits x(t) = A·e<sup>−γt</sup>·cos(ωt + φ) and reports the period, the damping constant and the damping coefficient b = 2mγ, which is the same b as in the lab manual formula 2m√(ω₀² − ω²).</p>
+  </div>
+  <div class="two">
+    <div class="code">
+      <div class="codehead"><span>capture.py</span><button class="btn" type="button" data-copy="code-cap">Copy</button></div>
+<pre id="code-cap">import sys, serial                      # pip install pyserial
+
+port, out = sys.argv[1], sys.argv[2]    # e.g. COM3 water_1.csv
+ser = serial.Serial(port, 115200, timeout=2)
+rows = []
+print("Ready. Press the button, then pull and release the mass.")
+while True:
+    line = ser.readline().decode(errors="ignore").strip()
+    if line == "t_ms,d_mm":
+        rows = []                       # a new trial has started
+    elif line == "END":
+        break
+    elif line and line[0].isdigit():
+        t, d = line.split(",")
+        rows.append((float(t), int(d)))
+
+with open(out, "w") as f:
+    f.write("t_ms,d_mm\n")
+    f.writelines(f"{t},{d}\n" for t, d in rows)
+print(f"Saved {len(rows)} samples to {out}")</pre>
+    </div>
+    <div class="code">
+      <div class="codehead"><span>fit.py</span><button class="btn" type="button" data-copy="code-fit">Copy</button></div>
+<pre id="code-fit">import sys
+import numpy as np, pandas as pd
+from scipy.optimize import curve_fit
+from scipy.signal import find_peaks
+
+df = pd.read_csv(sys.argv[1])
+mass = float(sys.argv[2])                    # kg, e.g. 0.200
+t = df.t_ms.to_numpy() / 1000
+x = df.d_mm.to_numpy(float)
+x -= np.median(x[-25:])                      # rest position from the settled tail
+
+i0 = np.argmax(x[: int(3 / np.median(np.diff(t)))])   # the release point
+t, x = t[i0:] - t[i0], x[i0:]
+
+def model(t, A, g, w, phi):
+    return A * np.exp(-g * t) * np.cos(w * t + phi)
+
+peaks, _ = find_peaks(x, prominence=3)       # needs 2+ peaks, so not for heavy damping
+T0 = np.mean(np.diff(t[peaks])) if len(peaks) &gt; 1 else 1.0
+(A, g, w, phi), cov = curve_fit(model, t, x, p0=[x[0], 0.5, 2 * np.pi / T0, 0.0])
+sg, sw = np.sqrt(np.diag(cov))[[1, 2]]
+
+T = 2 * np.pi / w
+print(f"period T      = {T:.4f} s  (+/- {T * sw / w:.4f})")
+print(f"damping gamma = {g:.4f} 1/s (+/- {sg:.4f})")
+print(f"damping b     = {2 * mass * g:.4f} kg/s")
+print(f"log decrement = {g * T:.3f}")</pre>
+    </div>
+  </div>
+
+  <div class="head" style="margin-top:36px;margin-bottom:14px"><h3>Before you quote numbers</h3></div>
+  <ul class="check">
+    <li>Move the flag to four known distances with a ruler and compare the readings. Put that small table in the report as the sensor calibration.</li>
+    <li>Run at least five trials per liquid and report the mean and standard deviation of T and γ.</li>
+    <li>Time the same setup once with a stopwatch and compare the spread. This is the improvement the logger buys.</li>
+    <li>If shampoo-water dies out in fewer than four swings, use a lighter mass or a softer spring so the fit has more peaks.</li>
+    <li>The first rise in each trace is your hand pulling the mass. The script starts the fit at the release point, which is the highest displacement in the first three seconds.</li>
+  </ul>
+</section>
+
+<div class="foot">
+  <span>Sensor noise, drag values and the stopwatch error in the simulation are assumptions made for illustration. Measure the real rig before relying on any number here.</span>
+  <span>Sketch written for the Pololu VL53L1X Arduino library. Check the pin labels on your own breakout before powering it.</span>
+</div>
+</main>
+
+<script id="core">
+/* Physics and analysis. No DOM access, so it can be tested on its own. */
+function gauss(){var u=0,v=Math.random();while(u===0)u=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function params(p){
+  var g=p.b/(2*p.m),w0=Math.sqrt(p.k/p.m),w=g<w0-1e-9?Math.sqrt(w0*w0-g*g):null;
+  return {g:g,w0:w0,w:w,zeta:g/w0,T:w?2*Math.PI/w:null,delta:w?g*2*Math.PI/w:null,Q:w0/(2*g)};
+}
+/* Mass displacement in mm, down positive. Eased pull for 0.5 s, then released from rest. */
+function trueX(t,p){
+  var tau=0.5;
+  if(t<=0)return 0;
+  if(t<tau)return p.A*(1-Math.cos(Math.PI*t/tau))/2;
+  var s=t-tau,g=p.b/(2*p.m),w0=Math.sqrt(p.k/p.m),f;
+  if(g<w0-1e-9){var w=Math.sqrt(w0*w0-g*g);f=Math.exp(-g*s)*(Math.cos(w*s)+g/w*Math.sin(w*s));}
+  else if(Math.abs(g-w0)<=1e-9){f=(1+g*s)*Math.exp(-g*s);}
+  else{var a=Math.sqrt(g*g-w0*w0);f=0.5*((1+g/a)*Math.exp(-(g-a)*s)+(1-g/a)*Math.exp(-(g+a)*s));}
+  return p.A*f;
+}
+/* One logged trial: calibrate, wait for a 5 mm move, log until 1 s of readings spans under 6 mm. */
+function simulate(p){
+  var fs=p.fs,dt=1/fs,D0=120,s=0,i,j;
+  for(i=0;i<fs;i++)s+=Math.round(D0+gauss()*p.noise);
+  var d0=s/fs,all=[],t=[],d=[],trig=-1,cap=Math.round(80*fs);
+  for(i=0;i<cap;i++){
+    var rd=Math.round(D0+trueX(i*dt,p)+gauss()*p.noise);
+    all.push(rd);
+    if(trig<0){if(Math.abs(rd-d0)>5)trig=i;else continue;}
+    t.push((i-trig)*dt);d.push(rd);
+    var n=d.length;
+    if(n>=2*fs){var lo=1e9,hi=-1e9;for(j=n-fs;j<n;j++){if(d[j]<lo)lo=d[j];if(d[j]>hi)hi=d[j];}if(hi-lo<6)break;}
+    if(n>=60*fs)break;
+  }
+  if(trig<0){trig=0;}
+  if(d.length<3){t=[0,dt,2*dt];d=[Math.round(d0),Math.round(d0),Math.round(d0)];}
+  return {p:p,d0:d0,all:all,t:t,d:d,tTrig:trig*dt};
+}
+function linfit(xs,ys){
+  var n=xs.length,sx=0,sy=0,sxx=0,sxy=0,i;
+  for(i=0;i<n;i++){sx+=xs[i];sy+=ys[i];sxx+=xs[i]*xs[i];sxy+=xs[i]*ys[i];}
+  var den=n*sxx-sx*sx;if(!den)return null;
+  var m=(n*sxy-sx*sy)/den;return {m:m,c:(sy-m*sx)/n};
+}
+/* Find the lowest points of each swing, then fit period and decay from them. */
+function analyze(r){
+  var t=r.t,n=t.length,dt=1/r.p.fs,i,x=[],s=[];
+  for(i=0;i<n;i++)x.push(r.d[i]-r.d0);
+  for(i=0;i<n;i++)s.push(i===0||i===n-1?x[i]:(x[i-1]+x[i]+x[i+1])/3);
+  var m=Math.max(5,Math.round(0.5*r.p.fs)),tail=x.slice(-m),mu=0,sd=0;
+  for(i=0;i<tail.length;i++)mu+=tail[i];mu/=tail.length;
+  for(i=0;i<tail.length;i++)sd+=(tail[i]-mu)*(tail[i]-mu);
+  var sig=Math.sqrt(sd/tail.length),h=Math.max(1.5,2*sig),thr=Math.max(2.5,3*sig);
+  function argmax(a,b){var k=a;for(var j=a;j<=b;j++)if(s[j]>s[k])k=j;return k;}
+  var st=0,start=-1,idx=[];
+  for(i=0;i<n;i++){
+    if(st<=0&&s[i]>h){st=1;start=i;}
+    else if(st>=0&&s[i]<-h){if(st===1)idx.push(argmax(start,i));st=-1;}
+  }
+  if(st===1)idx.push(argmax(start,n-1));
+  /* Least-squares parabola through the raw readings around each peak. */
+  var gaps=[];for(i=1;i<idx.length;i++)gaps.push(t[idx[i]]-t[idx[i-1]]);
+  gaps.sort(function(u,v){return u-v;});
+  var Tg=gaps.length?gaps[Math.floor(gaps.length/2)]:null;
+  var hw=Tg?Math.max(2,Math.round(0.12*Tg*r.p.fs)):2;
+  function refine(k){
+    var lo=Math.max(0,k-hw),hi=Math.min(n-1,k+hw);
+    if(hi-lo<4)return {t:t[k],a:s[k]};
+    var S0=0,S1=0,S2=0,S3=0,S4=0,Y0=0,Y1=0,Y2=0,j;
+    for(j=lo;j<=hi;j++){var u=(j-k)*dt,y=x[j];S0++;S1+=u;S2+=u*u;S3+=u*u*u;S4+=u*u*u*u;Y0+=y;Y1+=u*y;Y2+=u*u*y;}
+    /* solve [S4 S3 S2; S3 S2 S1; S2 S1 S0] [a b c] = [Y2 Y1 Y0] */
+    var M=[[S4,S3,S2,Y2],[S3,S2,S1,Y1],[S2,S1,S0,Y0]],c,r2,f;
+    for(c=0;c<3;c++){
+      var piv=c;for(r2=c+1;r2<3;r2++)if(Math.abs(M[r2][c])>Math.abs(M[piv][c]))piv=r2;
+      var tmp=M[c];M[c]=M[piv];M[piv]=tmp;
+      if(Math.abs(M[c][c])<1e-18)return {t:t[k],a:s[k]};
+      for(r2=c+1;r2<3;r2++){f=M[r2][c]/M[c][c];for(var q2=c;q2<4;q2++)M[r2][q2]-=f*M[c][q2];}
+    }
+    var cc=M[2][3]/M[2][2],bb=(M[1][3]-M[1][2]*cc)/M[1][1],aa=(M[0][3]-M[0][2]*cc-M[0][1]*bb)/M[0][0];
+    if(!(aa<0))return {t:t[k],a:s[k]};
+    var uu=-bb/(2*aa);
+    return {t:t[k]+uu,a:cc-bb*bb/(4*aa)};
+  }
+  var peaks=[];
+  for(i=0;i<idx.length;i++){var pk=refine(idx[i]);if(pk.a>thr)peaks.push(pk);}
+  var out={x:x,s:s,peaks:peaks,sig:sig,T:null,g:null};
+  if(peaks.length>=2){
+    var ts=peaks.map(function(q){return q.t;}),dts=[];
+    for(i=1;i<ts.length;i++)dts.push(ts[i]-ts[i-1]);
+    dts.sort(function(u,v){return u-v;});
+    var Tm=dts[Math.floor(dts.length/2)];
+    var ks=ts.map(function(v){return Math.round((v-ts[0])/Tm);});
+    var la=peaks.map(function(q){return Math.log(q.a);});
+    var f1=linfit(ks,ts),f2=linfit(ts,la);
+    if(f1&&f2&&f1.m>0){out.T=f1.m;out.g=-f2.m;}
+  }
+  return out;
+}
+/* Hand timing of 20 swings with a random error on each button press. */
+function stopwatch(r){
+  var q=params(r.p);if(!q.w)return null;
+  var tv=Math.log(r.p.A/3)/q.g;if(tv<20*q.T)return null;
+  return q.T+gauss()*0.141/20;
+}
+</script>
+
+<script>
+(function(){
+var $=function(id){return document.getElementById(id);};
+var PX=1.4,P={b:0.10,m:0.20,k:20,A:24,noise:0.7,fs:50,speed:3};
+var PRESETS={air:0.02,water:0.10,shampoo:0.40,thick:2.40};
+var cur=null,an=null,runs=[],runNo=0,raf=0,stage='done',stageT0=0,lastTs=0,simT=0,state='DONE';
+var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+if(reduce){P.speed=10;$('s_sp').value='10';}
+
+function fmt(v,d){return v==null||!isFinite(v)?'—':v.toFixed(d);}
+function setState(s){state=s;var g=document.querySelectorAll('.st');for(var i=0;i<g.length;i++)g[i].classList.toggle('on',g[i].getAttribute('data-s')===s);$('rdState').textContent=s;}
+
+function springPts(y2){
+  var top=32,lead=12,n=14,span=y2-top-2*lead,pts=[[90,top],[90,top+lead]];
+  for(var i=0;i<n;i++)pts.push([90+(i%2?-10:10),top+lead+span*(i+0.5)/n]);
+  pts.push([90,y2-lead],[90,y2]);
+  return pts.map(function(p){return p[0]+','+p[1].toFixed(1);}).join(' ');
+}
+
+function tEnd(){return cur.t[cur.t.length-1];}
+
+function render(){
+  var live=stage==='run'||stage==='done';
+  var x=live?trueX(simT,cur.p):0,dy=x*PX;
+  $('mover').setAttribute('transform','translate(0 '+dy.toFixed(2)+')');
+  $('spring').setAttribute('points',springPts(334+dy));
+  var yp=221+dy;
+  $('beam').setAttribute('y2',yp.toFixed(1));
+  var rd=120,ph=1;
+  if(live){var idx=Math.floor(simT*cur.p.fs);rd=cur.all[Math.min(Math.max(idx,0),cur.all.length-1)];ph=(simT*cur.p.fs)%1;}
+  var pc=$('pulse');pc.setAttribute('cy',yp.toFixed(1));pc.setAttribute('opacity',stage==='run'?(1-ph).toFixed(2):'0');
+  $('rdD').textContent='d = '+rd+' mm';
+  $('rdD0').textContent=stage==='calib'?'calibrating…':'d₀ = '+cur.d0.toFixed(1)+' mm';
+  var now=performance.now(),on=false;
+  if(state==='CALIBRATE')on=Math.floor(now/100)%2===0;
+  else if(state==='ARMED')on=Math.floor(now/500)%2===0;
+  else if(state==='LOGGING')on=true;
+  $('led').setAttribute('opacity',on?'1':'.15');
+  draw();
+}
+
+/* plot */
+function css(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim();}
+function niceStep(range,target){
+  var raw=range/target,pow=Math.pow(10,Math.floor(Math.log10(raw))),f=raw/pow;
+  return (f<1.5?1:f<3.5?2:f<7.5?5:10)*pow;
+}
+function draw(){
+  if(!cur)return;
+  var cv=$('plot'),w=cv.clientWidth;if(!w)return;
+  var dpr=window.devicePixelRatio||1,h=Math.round(Math.max(250,Math.min(380,w*0.5)));
+  cv.style.height=h+'px';cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);
+  var c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);
+  var ink=css('--ink'),muted=css('--muted'),grid=css('--grid'),acc=css('--accent'),dat=css('--data');
+  var L=56,R=14,T=14,B=40,pw=w-L-R,ph=h-T-B;
+  var te=Math.max(1,tEnd()),d0=cur.d0,yr=Math.max(10,Math.ceil(cur.p.A*1.15/5)*5);
+  var ymin=d0-yr,ymax=d0+yr;
+  function X(t){return L+t/te*pw;}
+  function Y(d){return T+(d-ymin)/(ymax-ymin)*ph;}
+  c.fillStyle=css('--bg');c.fillRect(0,0,w,h);
+  c.font='11px "IBM Plex Mono",ui-monospace,monospace';c.textBaseline='middle';
+  var ys=yr>20?10:5,v,i;
+  c.lineWidth=1;
+  for(v=Math.ceil(ymin/ys)*ys;v<=ymax;v+=ys){
+    c.strokeStyle=grid;c.beginPath();c.moveTo(L,Y(v));c.lineTo(L+pw,Y(v));c.stroke();
+    c.fillStyle=muted;c.textAlign='right';c.fillText(String(Math.round(v)),L-8,Y(v));
+  }
+  var xs=niceStep(te,7);
+  for(v=0;v<=te+1e-9;v+=xs){
+    c.strokeStyle=grid;c.beginPath();c.moveTo(X(v),T);c.lineTo(X(v),T+ph);c.stroke();
+    c.fillStyle=muted;c.textAlign='center';c.textBaseline='top';c.fillText(String(+v.toFixed(2)),X(v),T+ph+6);c.textBaseline='middle';
+  }
+  c.fillStyle=muted;c.textAlign='center';c.textBaseline='top';c.fillText('time since trigger (s)',L+pw/2,h-16);
+  c.save();c.translate(13,T+ph/2);c.rotate(-Math.PI/2);c.textBaseline='middle';c.fillText('d (mm), lower on plot = mass lower',0,0);c.restore();
+  c.textBaseline='middle';
+  c.strokeStyle=muted;c.lineWidth=1.2;c.beginPath();c.moveTo(L,Y(d0));c.lineTo(L+pw,Y(d0));c.stroke();
+  c.setLineDash([2,4]);c.strokeStyle=muted;
+  [-5,5].forEach(function(o){c.beginPath();c.moveTo(L,Y(d0+o));c.lineTo(L+pw,Y(d0+o));c.stroke();});
+  c.setLineDash([]);
+  c.fillStyle=muted;c.textAlign='left';c.fillText('trigger ±5 mm',L+6,Y(d0-5)-8);
+
+  var playT=stage==='run'?simT-cur.tTrig:(stage==='done'?tEnd():-1);
+  var final=stage==='done';
+  if(final&&an&&an.peaks.length>=2&&an.g!=null){
+    var p1=an.peaks[0];
+    c.setLineDash([6,4]);c.strokeStyle=acc;c.lineWidth=1.4;
+    [1,-1].forEach(function(sg){
+      c.beginPath();
+      for(i=0;i<=120;i++){var tt=p1.t+(te-p1.t)*i/120,dv=d0+sg*p1.a*Math.exp(-an.g*(tt-p1.t));
+        if(i===0)c.moveTo(X(tt),Y(dv));else c.lineTo(X(tt),Y(dv));}
+      c.stroke();
+    });
+    c.setLineDash([]);
+  }
+  if(playT>0){
+    c.strokeStyle=acc;c.lineWidth=1.5;c.beginPath();
+    var steps=Math.max(60,Math.round(pw*1.5)),last=Math.min(playT,te);
+    for(i=0;i<=steps;i++){var tt2=last*i/steps,dv2=120+trueX(tt2+cur.tTrig,cur.p);
+      if(i===0)c.moveTo(X(tt2),Y(dv2));else c.lineTo(X(tt2),Y(dv2));}
+    c.stroke();
+    var cnt=Math.min(cur.t.length,Math.floor(playT*cur.p.fs)+1),rad=cur.t.length>1500?1.2:cur.t.length>400?1.7:2.4;
+    c.fillStyle=dat;
+    for(i=0;i<cnt;i++){c.beginPath();c.arc(X(cur.t[i]),Y(cur.d[i]),rad,0,6.2832);c.fill();}
+  }
+  if(final&&an){
+    c.strokeStyle=ink;c.lineWidth=1.8;
+    an.peaks.forEach(function(q){c.beginPath();c.arc(X(q.t),Y(d0+q.a),6,0,6.2832);c.stroke();});
+  }
+  if(stage==='run'&&playT>=0){c.strokeStyle=muted;c.lineWidth=1;c.beginPath();c.moveTo(X(Math.min(playT,te)),T);c.lineTo(X(Math.min(playT,te)),T+ph);c.stroke();}
+}
+
+/* results */
+function stat(label,val,sub){return '<div class="stat"><span class="lab">'+label+'</span><span class="v">'+val+'</span><span class="s">'+sub+'</span></div>';}
+function updateStats(){
+  var q=params(cur.p),a=an,done=stage==='done';
+  var regime=q.zeta<0.98?'Underdamped':(q.zeta>1.02?'Overdamped':'Critically damped');
+  $('regime').textContent=regime;$('zeta').textContent='ζ = '+q.zeta.toFixed(2);
+  var sw=q.w?Math.floor(Math.log(cur.p.A/3)/q.g/q.T):0;
+  $('swings').textContent=q.w?('Swings above 3 mm: '+sw+'. A stopwatch run needs 20.'):'No swings: the mass creeps back without oscillating.';
+  var T=done?a.T:null,g=done?a.g:null,b=g!=null?2*cur.p.m*g:null,dl=(T!=null&&g!=null)?g*T:null;
+  var Qe=g!=null&&T!=null?Math.sqrt(Math.pow(2*Math.PI/T,2)+g*g)/(2*g):null;
+  $('stats').innerHTML=
+    stat('Period T',done?fmt(T,3)+' s':'…',q.T?'set '+q.T.toFixed(3)+' s':'set: none')+
+    stat('Decay γ',done?fmt(g,3)+' /s':'…','set '+q.g.toFixed(3)+' /s')+
+    stat('Drag b = 2mγ',done?fmt(b,3):'…','set '+cur.p.b.toFixed(3)+' kg/s')+
+    stat('Log decrement',done?fmt(dl,2):'…',q.delta?'set '+q.delta.toFixed(2):'set: none')+
+    stat('Quality Q',done?fmt(Qe,1):'…','set '+(isFinite(q.Q)?q.Q.toFixed(1):'∞'));
+  if(done&&a.peaks.length<2)$('hint').textContent='Fewer than two clear peaks, so no period or decay can be fitted.';
+}
+function mean(a){var s=0;a.forEach(function(v){s+=v;});return s/a.length;}
+function sdev(a){var m=mean(a),s=0;a.forEach(function(v){s+=(v-m)*(v-m);});return Math.sqrt(s/(a.length-1));}
+function renderRuns(){
+  var html='',cT=[],cG=[],cS=[];
+  runs.forEach(function(r){
+    html+='<tr><td class="num">'+r.n+'</td><td class="num">'+fmt(r.T,4)+'</td><td class="num">'+fmt(r.g,4)+'</td><td class="num">'+(r.sw==null?'n/a':fmt(r.sw,4))+'</td></tr>';
+    if(r.T!=null)cT.push(r.T);if(r.g!=null)cG.push(r.g);if(r.sw!=null)cS.push(r.sw);
+  });
+  function ms(a,d){return a.length>1?mean(a).toFixed(d)+' ± '+sdev(a).toFixed(d):'—';}
+  html+='<tr class="sum"><td class="num">mean ± SD</td><td class="num">'+ms(cT,4)+'</td><td class="num">'+ms(cG,4)+'</td><td class="num">'+ms(cS,4)+'</td></tr>';
+  var q=params(cur.p);
+  html+='<tr class="sum"><td class="num">set value</td><td class="num">'+fmt(q.T,4)+'</td><td class="num">'+fmt(q.g,4)+'</td><td class="num">'+fmt(q.T,4)+'</td></tr>';
+  $('runs').innerHTML=html;
+}
+function addRun(){
+  runNo++;runs.push({n:runNo,T:an.T,g:an.g,sw:stopwatch(cur)});
+  if(runs.length>8)runs.shift();
+  renderRuns();
+}
+
+/* playback */
+function finish(){
+  stage='done';simT=cur.tTrig+tEnd();setState('DONE');addRun();updateStats();render();
+  $('go').disabled=false;$('go').textContent='Pull and release again';
+  if(an.peaks.length>=2)$('hint').textContent='Done. The ringed points are the peaks the fit used.';
+}
+function tick(ts){
+  var dtReal=(ts-lastTs)/1000;lastTs=ts;
+  if(stage==='calib'){if(ts-stageT0>900){stage='armed';stageT0=ts;setState('ARMED');}}
+  else if(stage==='armed'){if(ts-stageT0>600){stage='run';simT=0;}}
+  else if(stage==='run'){
+    simT+=Math.min(dtReal,0.1)*P.speed;
+    var td=simT-cur.tTrig;
+    if(td>=0&&state!=='LOGGING')setState('LOGGING');
+    if(td>=tEnd()){finish();return;}
+  }
+  render();raf=requestAnimationFrame(tick);
+}
+function startTrial(){
+  cancelAnimationFrame(raf);
+  cur=simulate(P);an=analyze(cur);
+  stage='calib';simT=0;stageT0=performance.now();lastTs=stageT0;
+  setState('CALIBRATE');updateStats();
+  $('go').disabled=true;$('hint').textContent='Calibrating, then waiting for the pull.';
+  render();raf=requestAnimationFrame(tick);
+}
+function preview(){
+  cancelAnimationFrame(raf);
+  cur=simulate(P);an=analyze(cur);
+  runs=[];runNo=0;stage='done';simT=cur.tTrig+tEnd();
+  setState('DONE');addRun();updateStats();render();
+  $('go').disabled=false;$('go').textContent='Pull and release';
+  $('hint').textContent='The plot shows a finished trial. Press the button to watch one run.';
+}
+
+/* controls */
+var SL=[['b','b',function(v){return v.toFixed(2)+' kg/s';}],['m','m',function(v){return v.toFixed(2)+' kg';}],['k','k',function(v){return v.toFixed(0)+' N/m';}],['A','A',function(v){return v.toFixed(0)+' mm';}],['n','noise',function(v){return v.toFixed(1)+' mm';}]];
+function markPreset(){
+  var bs=document.querySelectorAll('[data-preset]');
+  for(var i=0;i<bs.length;i++)bs[i].setAttribute('aria-pressed',Math.abs(PRESETS[bs[i].getAttribute('data-preset')]-P.b)<0.0001?'true':'false');
+}
+SL.forEach(function(s){
+  var el=$('s_'+s[0]);
+  el.addEventListener('input',function(){P[s[1]]=parseFloat(el.value);$('o_'+s[0]).textContent=s[2](P[s[1]]);markPreset();preview();});
+});
+Array.prototype.forEach.call(document.querySelectorAll('[data-preset]'),function(b){
+  b.addEventListener('click',function(){
+    P.b=PRESETS[b.getAttribute('data-preset')];$('s_b').value=P.b;$('o_b').textContent=SL[0][2](P.b);markPreset();preview();
+  });
+});
+$('s_fs').addEventListener('change',function(){P.fs=parseInt(this.value,10);preview();});
+$('s_sp').addEventListener('change',function(){P.speed=parseInt(this.value,10);});
+$('go').addEventListener('click',startTrial);
+
+/* redraw on resize and theme change */
+window.addEventListener('resize',draw);
+if(window.matchMedia){var mq=window.matchMedia('(prefers-color-scheme: dark)');if(mq.addEventListener)mq.addEventListener('change',draw);}
+new MutationObserver(draw).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+/* copy buttons */
+Array.prototype.forEach.call(document.querySelectorAll('[data-copy]'),function(b){
+  b.addEventListener('click',function(){
+    var pre=$(b.getAttribute('data-copy')),txt=pre.textContent;
+    function sel(){var r=document.createRange();r.selectNodeContents(pre);var s=window.getSelection();s.removeAllRanges();s.addRange(r);}
+    function ok(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy';},1500);}
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(ok,function(){sel();b.textContent='Selected';setTimeout(function(){b.textContent='Copy';},1500);});}
+    else{sel();b.textContent='Selected';setTimeout(function(){b.textContent='Copy';},1500);}
+  });
+});
+
+/* hero figure: a decaying oscillation with its samples */
+(function(){
+  var W=420,H=230,x0=24,x1=404,y0=115,A=84,g=3.0,w=2*Math.PI*6.2,i,d='',env1='',env2='',dots='';
+  function X(t){return x0+t*(x1-x0);}
+  for(i=0;i<=240;i++){var t=i/240,y=y0+A*Math.exp(-g*t)*Math.cos(w*t);d+=(i?'L':'M')+X(t).toFixed(1)+' '+y.toFixed(1);}
+  for(i=0;i<=60;i++){var t2=i/60;env1+=(i?'L':'M')+X(t2).toFixed(1)+' '+(y0+A*Math.exp(-g*t2)).toFixed(1);env2+=(i?'L':'M')+X(t2).toFixed(1)+' '+(y0-A*Math.exp(-g*t2)).toFixed(1);}
+  for(i=0;i<=44;i++){var t3=i/44,y3=y0+A*Math.exp(-g*t3)*Math.cos(w*t3);dots+='<circle cx="'+X(t3).toFixed(1)+'" cy="'+y3.toFixed(1)+'" r="3.2" style="fill:var(--data)"/>';}
+  $('heroSvg').innerHTML=
+    '<line x1="'+x0+'" y1="'+y0+'" x2="'+x1+'" y2="'+y0+'" stroke-width="1.2" style="stroke:var(--muted)"/>'+
+    '<path d="'+env1+'" fill="none" stroke-width="1.5" stroke-dasharray="6 4" style="stroke:var(--accent)"/>'+
+    '<path d="'+env2+'" fill="none" stroke-width="1.5" stroke-dasharray="6 4" style="stroke:var(--accent)"/>'+
+    '<path d="'+d+'" fill="none" stroke-width="2" style="stroke:var(--accent)"/>'+dots+
+    '<text x="'+(x0)+'" y="22" font-family="IBM Plex Mono, monospace" font-size="12" style="fill:var(--muted)">x(t) = A·e^(−γt)·cos(ωt)</text>'+
+    '<text x="'+(x1)+'" y="'+(H-12)+'" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="12" style="fill:var(--muted)">one dot per sensor reading</text>';
+})();
+
+setState('DONE');
+var ql=params(P);
+preview();
+})();
+</script>
+</body></html>
